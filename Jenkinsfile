@@ -4,39 +4,45 @@ pipeline {
         jdk 'java17'
         maven 'maven3'
     }
-    environment {
+
+	environment {
 	    APP_NAME = "register-app-pipeline"
             RELEASE = "1.0.0"
             DOCKER_USER = "nsvinil"
             DOCKER_PASS = 'dockerhub'
             IMAGE_NAME = "${DOCKER_USER}" + "/" + "${APP_NAME}"
             IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
-	}
-    stages{
-        stage("Cleanup Workspace"){
-                steps {
+	    
+    }
+
+
+    stages {
+        stage("Cleanup Workspace") {
+            steps {
                 cleanWs()
-                }
+            }
         }
 
-        stage("Checkout from SCM"){
-                steps {
-                    git branch: 'main', credentialsId: 'github', url: 'https://github.com/cmd-gi/register-test'
-                }
+        stage("Checkout from SCM") {
+            steps {
+                git branch: 'main', 
+                    url: 'https://github.com/nsvinil2005/register-app-main', 
+                    credentialsId: 'github'
+            }
         }
 
-        stage("Build Application"){
+        stage("Build Application") {
             steps {
                 sh "mvn clean package"
             }
+        }
 
-       }
+        stage("Test Application") {
+            steps {
+                sh "mvn test"
+            }
+        }
 
-       stage("Test Application"){
-           steps {
-                 sh "mvn test"
-           }
-       }
         stage("SonarQube Analysis"){
            steps {
 	           script {
@@ -47,13 +53,13 @@ pipeline {
            }
        }
 		stage("Quality Gate"){
-           steps {
-               script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'jenkins-sonarqube-token'
-                }	
-            }
-
-        }
+		   steps {
+			   script {
+					waitForQualityGate abortPipeline: false, credentialsId: 'jenkins-sonarqube-token'
+				}	
+			}
+	
+		}
 
 		stage("Build & Push Docker Image") {
             steps {
@@ -68,13 +74,18 @@ pipeline {
                     }
                 }
             }
-			stage("Trivy Scan") {
+
+       }
+
+		stage("Trivy Scan") {
            steps {
                script {
 	            sh ('docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image nsvinil/register-app-pipeline:latest --no-progress --scanners vuln  --exit-code 0 --severity HIGH,CRITICAL --format table')
                }
            }
        }
-       }
+
+		
+
     }
 }
